@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../main.dart';
+
 
 import '../config/app_theme.dart';
 import '../providers/charity_provider.dart';
@@ -239,8 +239,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _navigateToTab(int index) {
-    final mainNav = context.findAncestorStateOfType<_MainNavigationScreenState>();
-    mainNav?._onTabTapped(index);
+    final bottomNav = context.findAncestorWidgetOfExactType<Scaffold>();
+    if (bottomNav != null) {
+      final navBar = context.findAncestorWidgetOfExactType<BottomNavigationBar>();
+      if (navBar != null && navBar.onTap != null) {
+        navBar.onTap!(index);
+      }
+    }
   }
 
   Widget _buildRecentActivity() {
