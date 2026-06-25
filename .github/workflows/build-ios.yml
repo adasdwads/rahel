@@ -25,6 +25,16 @@ jobs:
           flutter create --platforms ios .
           flutter pub get
 
+      - name: Set minimum iOS deployment target
+        working-directory: mobile/ios
+        run: |
+          # Update Podfile minimum target
+          sed -i '' "s/platform :ios, '.*'/platform :ios, '14.0'/" Podfile
+          # Update project.pbxproj deployment targets
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 14.0/g' Runner.xcodeproj/project.pbxproj
+          # Reinstall pods with updated target
+          pod install --repo-update
+
       - name: Disable code signing in Xcode
         working-directory: mobile/ios
         run: |
@@ -33,8 +43,6 @@ jobs:
           sed -i '' '/DEVELOPMENT_TEAM/d' Runner.xcodeproj/project.pbxproj
           sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' Runner.xcodeproj/project.pbxproj
           sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' Runner.xcodeproj/project.pbxproj
-          cat >> Runner.xcodeproj/project.pbxproj.patch << 'PATCH'
-          PATCH
 
       - name: Build iOS release
         working-directory: mobile
@@ -50,6 +58,7 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
+            IPHONEOS_DEPLOYMENT_TARGET=14.0 \
             -derivedDataPath ../build/ios/derived \
             build
 
