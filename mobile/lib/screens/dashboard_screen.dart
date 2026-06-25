@@ -9,6 +9,7 @@ import '../providers/heartbeat_provider.dart';
 import '../providers/vault_provider.dart';
 import '../providers/capsule_provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/main_navigation_controller.dart';
 import '../widgets/quick_action_tile.dart';
 import '../widgets/status_indicator.dart';
 

@@ -17,6 +17,7 @@ import 'screens/social_legacy_screen.dart';
 import 'screens/time_capsule_screen.dart';
 import 'screens/vault_screen.dart';
 import 'utils/app_strings.dart';
+import 'widgets/main_navigation_controller.dart';
 
 void main() {
   runApp(
@@ -96,23 +97,6 @@ class MainNavigationScreen extends StatefulWidget {
 
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
-}
-
-class MainNavigationController extends InheritedWidget {
-  const MainNavigationController({
-    super.key,
-    required this.goToTab,
-    required super.child,
-  });
-
-  final void Function(int index) goToTab;
-
-  static MainNavigationController? of(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<MainNavigationController>();
-  }
-
-  @override
-  bool updateShouldNotify(MainNavigationController oldWidget) => false;
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {

@@ -221,7 +221,7 @@ class _VaultScreenState extends State<VaultScreen> with SingleTickerProviderStat
   Future<String> _saveDownloadedFile(String fileName, Uint8List bytes) async {
     final directory = await getApplicationDocumentsDirectory();
     final safeName = fileName.trim().isEmpty ? 'rahel-file.bin' : fileName;
-    final file = File('${directory.path}\\$safeName');
+    final file = File('${directory.path}/$safeName');
     await file.writeAsBytes(bytes, flush: true);
     return file.path;
   }
