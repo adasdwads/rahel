@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    direction: rtl;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Tahoma', 'Arial', 'Inter', system-ui, sans-serif;
+    background-color: #1A1A1A;
+    color: #FFFFFF;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #1A1A1A;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+
+  input, textarea, select {
+    direction: rtl;
+    text-align: right;
+  }
+}
+
+@layer components {
+  .rahel-card {
+    @apply bg-rahel-surface rounded-xl border border-rahel-border p-6 transition-all duration-200;
+  }
+
+  .rahel-card:hover {
+    @apply border-rahel-accent/30;
+  }
+
+  .rahel-btn-primary {
+    @apply bg-rahel-accent hover:bg-rahel-accent-hover text-white font-medium py-2.5 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .rahel-btn-secondary {
+    @apply bg-rahel-elevated hover:bg-rahel-border text-rahel-text-primary font-medium py-2.5 px-6 rounded-lg transition-all duration-200 border border-rahel-border flex items-center justify-center gap-2;
+  }
+
+  .rahel-btn-danger {
+    @apply bg-rahel-danger/20 hover:bg-rahel-danger/30 text-rahel-danger font-medium py-2.5 px-6 rounded-lg transition-all duration-200 border border-rahel-danger/30 flex items-center justify-center gap-2;
+  }
+
+  .rahel-input {
+    @apply w-full bg-rahel-elevated border border-rahel-border rounded-lg py-2.5 px-4 text-rahel-text-primary placeholder-rahel-text-muted focus:outline-none focus:border-rahel-accent focus:ring-1 focus:ring-rahel-accent/50 transition-all duration-200;
+  }
+
+  .rahel-select {
+    @apply w-full bg-rahel-elevated border border-rahel-border rounded-lg py-2.5 px-4 text-rahel-text-primary focus:outline-none focus:border-rahel-accent focus:ring-1 focus:ring-rahel-accent/50 transition-all duration-200 appearance-none;
+  }
+
+  .rahel-label {
+    @apply block text-sm font-medium text-rahel-text-secondary mb-1.5;
+  }
+
+  .rahel-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .rahel-badge-active {
+    @apply rahel-badge bg-rahel-success/20 text-rahel-success;
+  }
+
+  .rahel-badge-triggered {
+    @apply rahel-badge bg-rahel-danger/20 text-rahel-danger;
+  }
+
+  .rahel-badge-warning {
+    @apply rahel-badge bg-rahel-warning/20 text-rahel-warning;
+  }
+
+  .rahel-glow {
+    box-shadow: 0 0 15px rgba(0, 123, 255, 0.3), 0 0 30px rgba(0, 123, 255, 0.1);
+  }
+
+  .rahel-page-title {
+    @apply text-2xl font-bold text-rahel-text-primary mb-1;
+  }
+
+  .rahel-page-subtitle {
+    @apply text-sm text-rahel-text-secondary;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-l from-rahel-accent to-blue-400 bg-clip-text text-transparent;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .encrypt-shimmer {
+    background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.1), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}
