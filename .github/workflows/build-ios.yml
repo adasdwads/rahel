@@ -1,4 +1,4 @@
-name: Build iOS
+name: Build iOS Unsigned IPA
 
 on:
   push:
@@ -6,71 +6,158 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  build:
+  build-ios-unsigned:
     runs-on: macos-latest
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      FLUTTER_VERSION: 3.24.5
+      IOS_DEPLOYMENT_TARGET: "14.0"
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Flutter
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
+          cache: true
 
-      - name: Generate iOS project and get deps
+      - name: Show toolchain versions
+        run: |
+          flutter --version
+          xcodebuild -version
+          ruby --version
+          pod --version
+
+      - name: Generate iOS host project
         working-directory: mobile
         run: |
-          flutter create --platforms ios .
           flutter pub get
+          flutter create --platforms ios --org com.rahel.app .
 
-      - name: Patch iOS project for unsigned build
-        working-directory: mobile/ios
+      - name: Patch iOS project for unsigned device build
+        working-directory: mobile
         run: |
-          # Set minimum deployment target to 14.0
-          sed -i '' "s/platform :ios, '.*'/platform :ios, '14.0'/" Podfile
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
 
-          # Add post_install hook to disable signing and fix deployment target in ALL pods
-          cat >> Podfile << 'EOF'
+          ios_dir = Path("ios")
+          podfile = ios_dir / "Podfile"
+          pbxproj = ios_dir / "Runner.xcodeproj" / "project.pbxproj"
+
+          podfile_text = podfile.read_text()
+          podfile_text = re.sub(r"platform :ios, '.*?'", "platform :ios, '14.0'", podfile_text)
+          podfile_text = re.sub(
+              r"post_install do \|installer\|.*?end\s*$",
+              "",
+              podfile_text,
+              flags=re.S,
+          ).rstrip()
+          podfile_text += """
 
           post_install do |installer|
             installer.pods_project.targets.each do |target|
+              flutter_additional_ios_build_settings(target)
               target.build_configurations.each do |config|
                 config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
                 config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
                 config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
-                config.build_settings['CODE_SIGN_IDENTITY'] = ''
+                config.build_settings['CODE_SIGNING_IDENTITY'] = ''
                 config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''
+                config.build_settings['DEVELOPMENT_TEAM'] = ''
+                config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
+                config.build_settings['PROVISIONING_PROFILE'] = ''
               end
             end
+
+            installer.aggregate_targets.each do |aggregate_target|
+              aggregate_target.user_project.native_targets.each do |target|
+                target.build_configurations.each do |config|
+                  config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+                  config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+                  config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+                  config.build_settings['CODE_SIGNING_IDENTITY'] = ''
+                  config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''
+                  config.build_settings['DEVELOPMENT_TEAM'] = ''
+                  config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
+                  config.build_settings['PROVISIONING_PROFILE'] = ''
+                end
+              end
+              aggregate_target.user_project.save
+            end
           end
-          EOF
+          """
+          podfile.write_text(podfile_text + "\n")
 
-          # Fix Runner project deployment target
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 14.0/g' Runner.xcodeproj/project.pbxproj
+          pbxproj_text = pbxproj.read_text()
+          pbxproj_text = re.sub(r"IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;", "IPHONEOS_DEPLOYMENT_TARGET = 14.0;", pbxproj_text)
+          pbxproj_text = re.sub(r"DEVELOPMENT_TEAM = [A-Z0-9]+;", "DEVELOPMENT_TEAM = \"\";", pbxproj_text)
+          replacements = {
+              r"CODE_SIGN_STYLE = Automatic;": "CODE_SIGN_STYLE = Manual;",
+              r"CODE_SIGN_IDENTITY = \"[^\"]*\";": "CODE_SIGN_IDENTITY = \"\";",
+              r"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\] = \"[^\"]*\";": "CODE_SIGN_IDENTITY[sdk=iphoneos*] = \"\";",
+              r"PROVISIONING_PROFILE_SPECIFIER = \"[^\"]*\";": "PROVISIONING_PROFILE_SPECIFIER = \"\";",
+              r"PROVISIONING_PROFILE = \"[^\"]*\";": "PROVISIONING_PROFILE = \"\";",
+          }
+          for pattern, replacement in replacements.items():
+              pbxproj_text = re.sub(pattern, replacement, pbxproj_text)
 
-          # Disable signing in Runner project
-          sed -i '' 's/CODE_SIGN_IDENTITY = "[^"]*"/CODE_SIGN_IDENTITY = ""/g' Runner.xcodeproj/project.pbxproj
-          sed -i '' '/DEVELOPMENT_TEAM/d' Runner.xcodeproj/project.pbxproj
+          for key in [
+              "CODE_SIGNING_ALLOWED",
+              "CODE_SIGNING_REQUIRED",
+          ]:
+              if key not in pbxproj_text:
+                  pbxproj_text = pbxproj_text.replace(
+                      "buildSettings = {\n",
+                      f"buildSettings = {{\n\t\t\t\t{key} = NO;\n",
+                  )
 
-          # Reinstall pods
-          pod install --repo-update
+          pbxproj.write_text(pbxproj_text)
+          PY
 
-      - name: Build iOS
+      - name: Install CocoaPods dependencies
+        working-directory: mobile/ios
+        run: |
+          rm -rf Pods Podfile.lock
+          pod repo update
+          pod install
+
+      - name: Build unsigned iOS app
         working-directory: mobile
         run: |
           flutter build ios --release --no-codesign
 
-      - name: Package IPA
+      - name: Verify Runner.app exists
         run: |
-          mkdir -p Payload
-          cp -r mobile/build/ios/iphoneos/Runner.app Payload/
-          zip -r RAHEL.ipa Payload/
+          test -d "mobile/build/ios/iphoneos/Runner.app"
 
-      - name: Upload iOS artifact
+      - name: Package unsigned IPA
+        run: |
+          rm -rf Payload RAHEL-unsigned.ipa
+          mkdir -p Payload
+          cp -R "mobile/build/ios/iphoneos/Runner.app" Payload/
+          /usr/bin/zip -qry RAHEL-unsigned.ipa Payload
+
+      - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
-          name: RAHEL-iOS
-          path: RAHEL.ipa
+          name: RAHEL-iOS-unsigned-ipa
+          path: RAHEL-unsigned.ipa
+          if-no-files-found: error
           retention-days: 30
