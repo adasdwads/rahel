@@ -10,6 +10,8 @@ const AuditLogModel = require('../models/auditLogModel');
 const createCrudController = require('../controllers/createCrudController');
 const createCrudRouter = require('./createCrudRouter');
 const authRoutes = require('./authRoutes');
+const socialRoutes = require('./socialRoutes');
+const socialLegacyRoutes = require('./socialLegacyRoutes');
 const authMiddleware = require('../middleware/authMiddleware');
 const { apiRateLimiter } = require('../middleware/rateLimiter');
 const { router: governmentWebhookRouter } = require('../automation/governmentWebhook');
@@ -34,6 +36,8 @@ router.get('/health', (req, res) => {
 });
 
 router.use('/auth', authRoutes);
+router.use('/social', socialRoutes);
+router.use('/social-legacy', socialLegacyRoutes);
 router.use(governmentWebhookRouter);
 router.use(apiRateLimiter);
 router.use(heartbeatRouter);

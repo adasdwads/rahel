@@ -50,6 +50,17 @@ jobs:
           flutter pub get
           flutter create --platforms ios --org com.rahel.app .
 
+      - name: Configure iOS app name localizations
+        working-directory: mobile
+        run: |
+          mkdir -p ios/Runner/en.lproj ios/Runner/ar.lproj
+          cat <<'EOF' > ios/Runner/en.lproj/InfoPlist.strings
+          CFBundleDisplayName = "Rahel";
+          EOF
+          cat <<'EOF' > ios/Runner/ar.lproj/InfoPlist.strings
+          CFBundleDisplayName = "راحل";
+          EOF
+
       - name: Patch iOS project for unsigned device build
         working-directory: mobile
         run: |
@@ -60,6 +71,7 @@ jobs:
           ios_dir = Path("ios")
           podfile = ios_dir / "Podfile"
           pbxproj = ios_dir / "Runner.xcodeproj" / "project.pbxproj"
+          info_plist = ios_dir / "Runner" / "Info.plist"
 
           podfile_text = podfile.read_text()
           podfile_text = re.sub(r"platform :ios, '.*?'", "platform :ios, '14.0'", podfile_text)
@@ -129,6 +141,21 @@ jobs:
                   )
 
           pbxproj.write_text(pbxproj_text)
+
+          info_plist_text = info_plist.read_text()
+          if "<key>CFBundleDisplayName</key>" not in info_plist_text:
+              info_plist_text = info_plist_text.replace(
+                  "<key>CFBundleDevelopmentRegion</key>\n\t<string>$(DEVELOPMENT_LANGUAGE)</string>\n",
+                  "<key>CFBundleDevelopmentRegion</key>\n\t<string>$(DEVELOPMENT_LANGUAGE)</string>\n\t<key>CFBundleDisplayName</key>\n\t<string>Rahel</string>\n",
+              )
+          else:
+              info_plist_text = re.sub(
+                  r"<key>CFBundleDisplayName</key>\s*<string>.*?</string>",
+                  "<key>CFBundleDisplayName</key>\n\t<string>Rahel</string>",
+                  info_plist_text,
+                  flags=re.S,
+              )
+          info_plist.write_text(info_plist_text)
           PY
 
       - name: Install CocoaPods dependencies

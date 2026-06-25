@@ -39,7 +39,7 @@ class ObituaryPreviewCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppTheme.primaryBackground,
+                color: AppTheme.secondaryBackground,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(

@@ -1,8 +1,11 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../config/app_theme.dart';
 import '../providers/vault_provider.dart';
@@ -64,8 +67,8 @@ class _VaultScreenState extends State<VaultScreen> with SingleTickerProviderStat
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _pickAndUploadFile(context),
         backgroundColor: AppTheme.accent,
-        icon: const Icon(Icons.add_rounded, color: AppTheme.textPrimary),
-        label: const Text('رفع ملف', style: TextStyle(color: AppTheme.textPrimary)),
+        icon: const Icon(Icons.add_rounded, color: AppTheme.buttonForeground),
+        label: const Text('رفع ملف', style: TextStyle(color: AppTheme.buttonForeground)),
       ),
     );
   }
@@ -93,7 +96,7 @@ class _VaultScreenState extends State<VaultScreen> with SingleTickerProviderStat
 
         return RefreshIndicator(
           color: AppTheme.accent,
-          backgroundColor: AppTheme.cardBackground,
+          backgroundColor: AppTheme.secondaryBackground,
           onRefresh: () => provider.loadFiles(),
           child: ListView.separated(
             padding: const EdgeInsets.all(16),
@@ -196,15 +199,15 @@ class _VaultScreenState extends State<VaultScreen> with SingleTickerProviderStat
   }
 
   Future<void> _downloadFile(BuildContext context, String fileID, String fileName) async {
-    // In a full production app, save decrypted bytes to Downloads via path_provider/share_plus.
-    // Here we invoke the service and show a success confirmation.
     final provider = context.read<VaultProvider>();
     try {
-      await provider.fetchFileDetails(fileID);
+      final bytes = await provider.decryptFile(fileID);
+      final savedPath = await _saveDownloadedFile(fileName, bytes);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('جاري تنزيل $fileName...')),
+          SnackBar(content: Text('تم حفظ الملف في $savedPath')),
         );
+        await Share.shareXFiles([XFile(savedPath)], text: 'ملف من خزنة Rahel');
       }
     } catch (e) {
       if (context.mounted) {
@@ -213,6 +216,14 @@ class _VaultScreenState extends State<VaultScreen> with SingleTickerProviderStat
         );
       }
     }
+  }
+
+  Future<String> _saveDownloadedFile(String fileName, Uint8List bytes) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final safeName = fileName.trim().isEmpty ? 'rahel-file.bin' : fileName;
+    final file = File('${directory.path}\\$safeName');
+    await file.writeAsBytes(bytes, flush: true);
+    return file.path;
   }
 
   void _confirmDeleteFile(BuildContext context, String fileID) {
@@ -500,7 +511,7 @@ class _VaultScreenState extends State<VaultScreen> with SingleTickerProviderStat
       decoration: InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: AppTheme.primaryBackground,
+        fillColor: AppTheme.inputFill,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -512,7 +523,7 @@ class _VaultScreenState extends State<VaultScreen> with SingleTickerProviderStat
   ButtonStyle _elevatedStyle() {
     return ElevatedButton.styleFrom(
       backgroundColor: AppTheme.accent,
-      foregroundColor: AppTheme.textPrimary,
+      foregroundColor: AppTheme.buttonForeground,
       padding: const EdgeInsets.symmetric(vertical: 14),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );

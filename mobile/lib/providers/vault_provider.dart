@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
@@ -126,6 +127,20 @@ class VaultProvider extends ChangeNotifier {
       final details = await _vaultService.fetchFileDetails(fileID);
       _error = null;
       return details;
+    } catch (e) {
+      _error = e.toString().replaceFirst('Exception: ', '');
+      rethrow;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<Uint8List> decryptFile(String fileID) async {
+    _setLoading(true);
+    try {
+      final bytes = await _vaultService.decryptFile(fileID);
+      _error = null;
+      return bytes;
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
       rethrow;

@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const db = require('../config/database');
 const UserModel = require('../models/userModel');
 const {
+  getConfig,
   createAuthorizationResponse,
   exchangeAuthorizationCode,
   getUserInfo
@@ -117,9 +118,11 @@ const refreshToken = async (req, res, next) => {
 
 const authorizeUaePass = async (req, res, next) => {
   try {
+    const config = getConfig(req.body.environment, req.body.redirectUri);
     const response = createAuthorizationResponse({
-      redirectUri: req.body.redirectUri || 'rahel://uae-pass/callback',
-      state: req.body.state || 'rahel-state'
+      redirectUri: config.redirectUri,
+      state: req.body.state || 'rahel-state',
+      environment: config.environment
     });
 
     return res.json(response);
@@ -130,9 +133,11 @@ const authorizeUaePass = async (req, res, next) => {
 
 const handleUaePassCallback = async (req, res, next) => {
   try {
+    const config = getConfig(req.body.environment, req.body.redirectUri);
     const tokenResponse = exchangeAuthorizationCode({
       code: req.body.code,
-      redirectUri: req.body.redirectUri || 'rahel://uae-pass/callback'
+      redirectUri: config.redirectUri,
+      environment: config.environment
     });
     const profile = getUserInfo(tokenResponse.access_token);
 
@@ -155,7 +160,8 @@ const handleUaePassCallback = async (req, res, next) => {
     return res.json({
       ...auth,
       uaePassProfile: profile,
-      uaePassTokens: tokenResponse
+      uaePassTokens: tokenResponse,
+      uaePassEnvironment: config.environment
     });
   } catch (error) {
     return next(error);

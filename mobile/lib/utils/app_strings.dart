@@ -4,5 +4,5 @@ class AppStrings {
   static const charity = 'الصدقات';
   static const timeCapsule = 'الكبسولة';
   static const socialLegacy = 'الإرث الاجتماعي';
-  static const appTitle = 'RAHEL';
+  static const appTitle = 'Rahel';
 }

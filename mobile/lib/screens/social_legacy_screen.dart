@@ -1,16 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart';
 
-import '../config/app_config.dart';
 import '../config/app_theme.dart';
-import '../providers/vault_provider.dart';
-import '../services/auth_service.dart';
-import '../widgets/heir_list_tile.dart';
-import '../widgets/obituary_preview_card.dart';
-import '../widgets/self_destruct_checklist.dart';
+import '../services/social_media_service.dart';
 
 class SocialLegacyScreen extends StatefulWidget {
   const SocialLegacyScreen({super.key});
@@ -19,169 +10,246 @@ class SocialLegacyScreen extends StatefulWidget {
   State<SocialLegacyScreen> createState() => _SocialLegacyScreenState();
 }
 
-class _SocialLegacyScreenState extends State<SocialLegacyScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _SocialLegacyScreenState extends State<SocialLegacyScreen> {
+  final SocialMediaService _socialMediaService = SocialMediaService();
+  final TextEditingController _obituaryController = TextEditingController();
+  final TextEditingController _destructDescriptionController = TextEditingController();
+
   bool _isLoading = false;
+  bool _isPosting = false;
   String? _error;
-  List<dynamic> _configs = [];
-  List<dynamic> _destructItems = [];
+  List<Map<String, dynamic>> _platforms = [];
+  List<Map<String, dynamic>> _legacyConfigs = [];
+  List<Map<String, dynamic>> _destructItems = [];
+  final Set<String> _selectedPlatforms = <String>{};
+
+  static const List<Map<String, String>> _platformCatalog = [
+    {'key': 'x', 'name': 'X (Twitter)', 'asset': 'assets/social/x.png'},
+    {'key': 'instagram', 'name': 'Instagram', 'asset': 'assets/social/instagram.png'},
+    {'key': 'facebook', 'name': 'Facebook', 'asset': 'assets/social/facebook.png'},
+    {'key': 'snapchat', 'name': 'Snapchat', 'asset': 'assets/social/snapchat.png'},
+    {'key': 'tiktok', 'name': 'TikTok', 'asset': 'assets/social/tiktok.png'},
+    {'key': 'linkedin', 'name': 'LinkedIn', 'asset': 'assets/social/linkedin.png'},
+    {'key': 'telegram', 'name': 'Telegram', 'asset': 'assets/social/telegram.png'},
+  ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<VaultProvider>().loadHeirs();
-      _loadConfigs();
-    });
+    _loadPlatforms();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _obituaryController.dispose();
+    _destructDescriptionController.dispose();
     super.dispose();
   }
 
-  Future<Map<String, String>> _headers() async {
-    final session = await AuthService().restoreSession();
-    final token = session?['accessToken'] as String?;
-    return {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
-    };
-  }
+  Future<void> _loadPlatforms() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
 
-  Future<void> _loadConfigs() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
     try {
-      final response = await http.get(
-        Uri.parse('${AppConfig.baseUrl}/social-legacy/configs'),
-        headers: await _headers(),
-      );
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      _configs = (data['socialConfigs'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
-      _destructItems = (data['selfDestructItems'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
-    } catch (e) {
-      _error = e.toString().replaceFirst('Exception: ', '');
+      final connectedPlatforms = await _socialMediaService.getConnectedPlatforms();
+      final legacyConfigs = await _socialMediaService.getLegacyConfigs();
+      final merged = _platformCatalog.map((platform) {
+        final match = connectedPlatforms.cast<Map<String, dynamic>>().firstWhere(
+          (item) => item['platformName'] == platform['key'],
+          orElse: () => <String, dynamic>{},
+        );
+
+        return {
+          'platformName': platform['key'],
+          'displayName': platform['name'],
+          'asset': platform['asset'],
+          'connected': match['connected'] == true,
+          'username': match['username'],
+        };
+      }).toList();
+
+      _selectedPlatforms
+        ..clear()
+        ..addAll(
+          merged
+              .where((platform) => platform['connected'] == true)
+              .map((platform) => platform['platformName'].toString()),
+        );
+
+      if (mounted) {
+        setState(() {
+          _platforms = merged;
+          _legacyConfigs = legacyConfigs['socialConfigs'] ?? <Map<String, dynamic>>[];
+          _destructItems = legacyConfigs['selfDestructItems'] ?? <Map<String, dynamic>>[];
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = error.toString().replaceFirst('Exception: ', '');
+        });
+      }
     } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _savePlatform(String platform, String obituary, {String? donationLink}) async {
-    setState(() => _isLoading = true);
-    try {
-      await http.post(
-        Uri.parse('${AppConfig.baseUrl}/social-legacy/platform'),
-        headers: await _headers(),
-        body: jsonEncode({
-          'platform': platform,
-          'obituaryText': obituary,
-          'donationLink': donationLink,
-        }),
-      );
-      await _loadConfigs();
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم حفظ إعدادات المنصة')),
-        );
-      }
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل الحفظ: ${e.toString().replaceFirst('Exception: ', '')}')),
-        );
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
 
-  Future<void> _deleteConfig(String configID) async {
-    setState(() => _isLoading = true);
+  Future<void> _connectPlatform(String platformName) async {
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
     try {
-      await http.delete(
-        Uri.parse('${AppConfig.baseUrl}/social-legacy/platform/$configID'),
-        headers: await _headers(),
+      await _socialMediaService.connectPlatform(platformName);
+      await _loadPlatforms();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم فتح صفحة الربط وتحديث الحساب بنجاح')),
       );
-      await _loadConfigs();
-    } catch (e) {
-      setState(() => _isLoading = false);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  Future<void> _addDestructItem(String targetType, String description, int priority) async {
-    setState(() => _isLoading = true);
+  Future<void> _disconnectPlatform(String platformName) async {
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
     try {
-      await http.post(
-        Uri.parse('${AppConfig.baseUrl}/social-legacy/self-destruct/add'),
-        headers: await _headers(),
-        body: jsonEncode({
-          'targetType': targetType,
-          'description': description,
-          'priority': priority,
-        }),
+      await _socialMediaService.disconnectPlatform(platformName);
+      _selectedPlatforms.remove(platformName);
+      await _loadPlatforms();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم فصل الحساب بنجاح')),
       );
-      await _loadConfigs();
-    } catch (e) {
-      setState(() => _isLoading = false);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  Future<void> _confirmDestructItem(String itemID) async {
-    setState(() => _isLoading = true);
-    try {
-      await http.put(
-        Uri.parse('${AppConfig.baseUrl}/social-legacy/self-destruct/$itemID/confirm'),
-        headers: await _headers(),
+  Future<void> _postObituary() async {
+    final text = _obituaryController.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى كتابة نص النعي أولاً')),
       );
-      await _loadConfigs();
-    } catch (e) {
-      setState(() => _isLoading = false);
+      return;
     }
-  }
 
-  Future<void> _deleteDestructItem(String itemID) async {
-    setState(() => _isLoading = true);
-    try {
-      await http.delete(
-        Uri.parse('${AppConfig.baseUrl}/social-legacy/self-destruct/$itemID'),
-        headers: await _headers(),
+    if (_selectedPlatforms.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('اختر منصة واحدة على الأقل للنشر')),
       );
-      await _loadConfigs();
-    } catch (e) {
-      setState(() => _isLoading = false);
+      return;
+    }
+
+    setState(() => _isPosting = true);
+    try {
+      for (final platformName in _selectedPlatforms) {
+        await _socialMediaService.postObituary(platformName, text);
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تم نشر النعي على ${_selectedPlatforms.length} منصة')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isPosting = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
+      appBar: AppBar(
+        title: const Text('الحسابات الاجتماعية'),
+      ),
+      body: RefreshIndicator(
+        color: AppTheme.accent,
+        backgroundColor: AppTheme.cardBackground,
+        onRefresh: _loadPlatforms,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _buildHeaderCard(),
+            const SizedBox(height: 16),
+            if (_error != null) _buildErrorCard(),
+            ..._platforms.map(_buildPlatformCard),
+            const SizedBox(height: 20),
+            _buildObituaryComposer(),
+            const SizedBox(height: 20),
+            _buildSelfDestructSection(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderCard() {
+    final connectedCount =
+        _platforms.where((platform) => platform['connected'] == true).length;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: AppTheme.goldGradient,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TabBar(
-            controller: _tabController,
-            indicatorColor: AppTheme.accent,
-            labelColor: AppTheme.accent,
-            unselectedLabelColor: AppTheme.textSecondary,
-            tabs: const [
-              Tab(text: 'الورثة', icon: Icon(Icons.people_rounded)),
-              Tab(text: 'المنصات', icon: Icon(Icons.share_rounded)),
-              Tab(text: 'التدمير الذاتي', icon: Icon(Icons.delete_forever_rounded)),
-            ],
+          Text(
+            'ربط الحسابات الاجتماعية',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: AppTheme.buttonForeground,
+                  fontWeight: FontWeight.bold,
+                ),
           ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildHeirsTab(),
-                _buildPlatformsTab(),
-                _buildDestructTab(),
-              ],
+          const SizedBox(height: 8),
+          Text(
+            'اربط 7 منصات اجتماعية، اختر الحسابات المتصلة، ثم انشر رسالة النعي مباشرة.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppTheme.buttonForeground,
+                ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$connectedCount / 7 حسابات متصلة',
+              style: const TextStyle(
+                color: AppTheme.buttonForeground,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -189,177 +257,351 @@ class _SocialLegacyScreenState extends State<SocialLegacyScreen>
     );
   }
 
-  Widget _buildHeirsTab() {
-    return Consumer<VaultProvider>(
-      builder: (context, provider, _) {
-        if (provider.isLoading && provider.heirs.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (provider.heirs.isEmpty) {
-          return _emptyState(
-            icon: Icons.people_outline_rounded,
-            message: 'لا يوجد ورثة',
-            subMessage: 'أضف مستفيدين من الرئيسية أو الخزنة.',
-          );
-        }
-
-        return RefreshIndicator(
-          color: AppTheme.accent,
-          backgroundColor: AppTheme.cardBackground,
-          onRefresh: () => provider.loadHeirs(),
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: provider.heirs.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final heir = provider.heirs[index] as Map<String, dynamic>;
-              return HeirListTile(
-                heir: heir,
-                onAssign: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('استخدم تبويب الخزنة لتعيين المفاتيح')),
-                  );
-                },
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildPlatformsTab() {
-    final platforms = ['X (Twitter)', 'Facebook', 'Instagram'];
-    final keys = ['TWITTER', 'FACEBOOK', 'INSTAGRAM'];
-
-    return RefreshIndicator(
-      color: AppTheme.accent,
-      backgroundColor: AppTheme.cardBackground,
-      onRefresh: _loadConfigs,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+  Widget _buildErrorCard() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4F4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFFD0D0)),
+      ),
+      child: Row(
         children: [
-          ...List.generate(platforms.length, (index) {
-            final key = keys[index];
-            final config = _configs.cast<Map<String, dynamic>>().firstWhere(
-              (c) {
-                final platform = c['platform'];
-                return platform != null && platform.toString().toUpperCase() == key;
-              },
-              orElse: () => <String, dynamic>{},
-            );
-            final isConfigured = config.isNotEmpty;
-
-            return Card(
-              color: AppTheme.cardBackground,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(platforms[index],
-                            style: Theme.of(context).textTheme.titleMedium),
-                        Chip(
-                          backgroundColor: isConfigured
-                              ? Colors.greenAccent.withOpacity(0.15)
-                              : Colors.orangeAccent.withOpacity(0.15),
-                          label: Text(
-                            isConfigured ? 'مفعّل' : 'غير مفعّل',
-                            style: TextStyle(
-                              color: isConfigured ? Colors.greenAccent : Colors.orangeAccent,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    if (isConfigured)
-                      ObituaryPreviewCard(
-                        platform: platforms[index],
-                        obituaryText: config['obituaryText']?.toString(),
-                        donationLink: config['donationLink']?.toString(),
-                      )
-                    else
-                      Text(
-                        'لم يتم تكوين المنصة بعد. اضغط "تكوين" لإعداد رسالة النعي ورابط التبرع.',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _isLoading
-                                ? null
-                                : () => _showPlatformConfigDialog(context, key),
-                            icon: const Icon(Icons.settings_rounded),
-                            label: Text(isConfigured ? 'تعديل' : 'تكوين'),
-                            style: _elevatedStyle(),
-                          ),
-                        ),
-                        if (isConfigured) ...[
-                          const SizedBox(width: 10),
-                          IconButton(
-                            onPressed: () => _deleteConfig(config['configID'].toString()),
-                            icon: const Icon(Icons.delete_outline_rounded,
-                                color: Colors.redAccent),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
+          const Icon(Icons.error_outline_rounded, color: Colors.redAccent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _error!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.redAccent,
+                  ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  void _showPlatformConfigDialog(BuildContext context, String platform) {
-    final obituaryCtrl = TextEditingController();
-    final donationCtrl = TextEditingController();
+  Widget _buildPlatformCard(Map<String, dynamic> platform) {
+    final connected = platform['connected'] == true;
+    final platformName = platform['platformName'].toString();
+    final username = platform['username']?.toString();
+    final selected = _selectedPlatforms.contains(platformName);
+    final config = _legacyConfigs.firstWhere(
+      (item) => item['platform']?.toString().toLowerCase() == platformName,
+      orElse: () => <String, dynamic>{},
+    );
+    final hasConfig = config.isNotEmpty;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 14),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                _buildPlatformIcon(platform['asset'].toString()),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        platform['displayName'].toString(),
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        connected
+                            ? 'مرتبط باسم المستخدم ${username ?? ''}'
+                            : 'الحساب غير مرتبط حالياً',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                _buildStatusChip(connected),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: connected
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _isLoading
+                                    ? null
+                                    : () => _showPlatformConfigDialog(platformName, config),
+                                icon: const Icon(Icons.settings_rounded),
+                                label: Text(hasConfig ? 'تعديل' : 'تكوين'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _isLoading
+                                    ? null
+                                    : () => _disconnectPlatform(platformName),
+                                icon: const Icon(Icons.link_off_rounded),
+                                label: const Text('فصل'),
+                              ),
+                            ),
+                          ],
+                        )
+                      : ElevatedButton.icon(
+                          onPressed:
+                              _isLoading ? null : () => _connectPlatform(platformName),
+                          icon: const Icon(Icons.link_rounded),
+                          label: const Text('ربط'),
+                        ),
+                ),
+                const SizedBox(width: 12),
+                Checkbox(
+                  value: connected && selected,
+                  activeColor: AppTheme.accent,
+                  onChanged: connected
+                      ? (value) {
+                          setState(() {
+                            if (value == true) {
+                              _selectedPlatforms.add(platformName);
+                            } else {
+                              _selectedPlatforms.remove(platformName);
+                            }
+                          });
+                        }
+                      : null,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlatformIcon(String assetPath) {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: AppTheme.secondaryBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.cardBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Image.asset(assetPath, fit: BoxFit.contain),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(bool connected) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: connected
+            ? const Color(0x1A2E7D32)
+            : const Color(0x1AF57C00),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.circle,
+            size: 10,
+            color: connected ? const Color(0xFF2E7D32) : const Color(0xFFF57C00),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            connected ? 'Connected' : 'Disconnected',
+            style: TextStyle(
+              color: connected ? const Color(0xFF2E7D32) : const Color(0xFFF57C00),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildObituaryComposer() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'محرر نص النعي',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'اكتب الرسالة وحدد المنصات المتصلة التي تريد النشر عليها.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _obituaryController,
+              minLines: 6,
+              maxLines: 10,
+              decoration: InputDecoration(
+                hintText: 'اكتب نص النعي هنا...',
+                filled: true,
+                fillColor: AppTheme.inputFill,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _platforms
+                  .where((platform) => platform['connected'] == true)
+                  .map(
+                    (platform) => FilterChip(
+                      selected: _selectedPlatforms
+                          .contains(platform['platformName'].toString()),
+                      label: Text(platform['displayName'].toString()),
+                      selectedColor: AppTheme.secondaryAccent.withOpacity(0.18),
+                      checkmarkColor: AppTheme.accent,
+                      onSelected: (selected) {
+                        setState(() {
+                          final key = platform['platformName'].toString();
+                          if (selected) {
+                            _selectedPlatforms.add(key);
+                          } else {
+                            _selectedPlatforms.remove(key);
+                          }
+                        });
+                      },
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isPosting || _isLoading ? null : _postObituary,
+                icon: _isPosting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.buttonForeground,
+                        ),
+                      )
+                    : const Icon(Icons.campaign_rounded),
+                label: Text(_isPosting ? 'جاري النشر...' : 'نشر النعي'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.secondaryAccent,
+                  foregroundColor: AppTheme.buttonForeground,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelfDestructSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'التدمير الذاتي',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                TextButton.icon(
+                  onPressed: _isLoading ? null : _showAddDestructDialog,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('إضافة'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_destructItems.isEmpty)
+              Text(
+                'لا توجد عناصر تدمير ذاتي بعد.',
+                style: Theme.of(context).textTheme.bodySmall,
+              )
+            else
+              ..._destructItems.map((item) {
+                final confirmed = item['confirmed'] == 1 || item['confirmed'] == true;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Checkbox(
+                    value: confirmed,
+                    onChanged: confirmed
+                        ? null
+                        : (_) => _confirmDestructItem(item['itemID'].toString()),
+                  ),
+                  title: Text(item['description']?.toString() ?? 'عنصر'),
+                  subtitle: Text(item['targetType']?.toString() ?? ''),
+                  trailing: IconButton(
+                    onPressed: () => _deleteDestructItem(item['itemID'].toString()),
+                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                  ),
+                );
+              }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPlatformConfigDialog(String platformName, Map<String, dynamic> config) {
+    final obituaryController =
+        TextEditingController(text: config['obituaryText']?.toString() ?? _obituaryController.text);
+    final donationController =
+        TextEditingController(text: config['donationLink']?.toString() ?? '');
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.cardBackground,
-        title: Text('تكوين $platform'),
+        title: Text('تكوين ${platformName.toUpperCase()}'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: obituaryCtrl,
+                controller: obituaryController,
                 maxLines: 4,
-                decoration: InputDecoration(
-                  labelText: 'نص النعي',
-                  filled: true,
-                  fillColor: AppTheme.primaryBackground,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+                decoration: const InputDecoration(labelText: 'نص النعي'),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextField(
-                controller: donationCtrl,
-                decoration: InputDecoration(
-                  labelText: 'رابط التبرع (اختياري)',
-                  filled: true,
-                  fillColor: AppTheme.primaryBackground,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+                controller: donationController,
+                decoration: const InputDecoration(labelText: 'رابط التبرع'),
               ),
             ],
           ),
@@ -369,12 +611,14 @@ class _SocialLegacyScreenState extends State<SocialLegacyScreen>
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await _savePlatform(
-                platform,
-                obituaryCtrl.text.trim(),
-                donationLink:
-                    donationCtrl.text.trim().isEmpty ? null : donationCtrl.text.trim(),
+              await _socialMediaService.saveLegacyPlatformConfig(
+                platform: platformName,
+                obituaryText: obituaryController.text.trim(),
+                donationLink: donationController.text.trim().isEmpty
+                    ? null
+                    : donationController.text.trim(),
               );
+              await _loadPlatforms();
             },
             child: const Text('حفظ'),
           ),
@@ -383,126 +627,65 @@ class _SocialLegacyScreenState extends State<SocialLegacyScreen>
     );
   }
 
-  Widget _buildDestructTab() {
-    return RefreshIndicator(
-      color: AppTheme.accent,
-      backgroundColor: AppTheme.cardBackground,
-      onRefresh: _loadConfigs,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isLoading ? null : () => _showAddDestructDialog(context),
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('إضافة عنصر للتدمير'),
-                style: _elevatedStyle(),
-              ),
+  void _showAddDestructDialog() {
+    String targetType = 'social_post';
+    _destructDescriptionController.clear();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: AppTheme.cardBackground,
+          title: const Text('إضافة عنصر تدمير ذاتي'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: targetType,
+                  items: const [
+                    DropdownMenuItem(value: 'social_post', child: Text('منشور اجتماعي')),
+                    DropdownMenuItem(value: 'account', child: Text('حساب')),
+                    DropdownMenuItem(value: 'file', child: Text('ملف')),
+                    DropdownMenuItem(value: 'message', child: Text('رسالة')),
+                  ],
+                  onChanged: (value) => setState(() => targetType = value ?? 'social_post'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _destructDescriptionController,
+                  decoration: const InputDecoration(labelText: 'الوصف'),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-            if (_isLoading && _destructItems.isEmpty)
-              const Center(child: CircularProgressIndicator())
-            else
-              SelfDestructChecklist(
-                items: _destructItems,
-                onConfirm: _confirmDestructItem,
-                onDelete: _deleteDestructItem,
-              ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _socialMediaService.addSelfDestructItem(
+                  targetType: targetType,
+                  description: _destructDescriptionController.text.trim(),
+                  priority: 1,
+                );
+                await _loadPlatforms();
+              },
+              child: const Text('إضافة'),
+            ),
           ],
         ),
       ),
     );
   }
 
-  void _showAddDestructDialog(BuildContext context) {
-    final descCtrl = TextEditingController();
-    String targetType = 'social_post';
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            backgroundColor: AppTheme.cardBackground,
-            title: const Text('إضافة عنصر تدمير ذاتي'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(labelText: 'نوع الهدف'),
-                    value: targetType,
-                    dropdownColor: AppTheme.cardBackground,
-                    items: const [
-                      DropdownMenuItem(value: 'social_post', child: Text('منشور اجتماعي')),
-                      DropdownMenuItem(value: 'file', child: Text('ملف')),
-                      DropdownMenuItem(value: 'account', child: Text('حساب')),
-                      DropdownMenuItem(value: 'message', child: Text('رسالة')),
-                    ],
-                    onChanged: (v) => setState(() => targetType = v ?? 'social_post'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: descCtrl,
-                    decoration: InputDecoration(
-                      labelText: 'الوصف',
-                      filled: true,
-                      fillColor: AppTheme.primaryBackground,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-              TextButton(
-                onPressed: () async {
-                  if (descCtrl.text.trim().isEmpty) return;
-                  Navigator.pop(ctx);
-                  await _addDestructItem(targetType, descCtrl.text.trim(), 1);
-                },
-                child: const Text('إضافة'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+  Future<void> _confirmDestructItem(String itemId) async {
+    await _socialMediaService.confirmSelfDestructItem(itemId);
+    await _loadPlatforms();
   }
 
-  ButtonStyle _elevatedStyle() {
-    return ElevatedButton.styleFrom(
-      backgroundColor: AppTheme.accent,
-      foregroundColor: AppTheme.textPrimary,
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    );
-  }
-
-  Widget _emptyState({
-    required IconData icon,
-    required String message,
-    required String subMessage,
-  }) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: AppTheme.textSecondary, size: 64),
-          const SizedBox(height: 16),
-          Text(message, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text(subMessage, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
-    );
+  Future<void> _deleteDestructItem(String itemId) async {
+    await _socialMediaService.deleteSelfDestructItem(itemId);
+    await _loadPlatforms();
   }
 }

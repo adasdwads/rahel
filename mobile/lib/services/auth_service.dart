@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'api_service.dart';
 
@@ -23,6 +24,7 @@ class AuthService {
   static const _userKey = 'rahel_user';
   static const _biometricEmailKey = 'rahel_biometric_email';
   static const _biometricTokenKey = 'rahel_biometric_token';
+  static const _uaePassRedirectUri = 'rahel://uae-pass/callback';
 
   Future<Map<String, dynamic>> login({
     required String email,
@@ -60,7 +62,7 @@ class AuthService {
     }
 
     final didAuthenticate = await _localAuthentication.authenticate(
-      localizedReason: 'استخدم البصمة أو Face ID للدخول إلى RAHEL',
+      localizedReason: 'استخدم البصمة أو Face ID للدخول إلى Rahel',
       options: const AuthenticationOptions(biometricOnly: true, stickyAuth: true),
     );
 
@@ -92,9 +94,18 @@ class AuthService {
 
   Future<Map<String, dynamic>> uaePassAuth() async {
     final authorize = await _apiService.post('/auth/uae-pass/authorize', {
-      'redirectUri': 'rahel://uae-pass/callback',
+      'redirectUri': _uaePassRedirectUri,
       'state': 'mobile-rahel-state',
     });
+
+    final authorizationUrl = Uri.parse(authorize['authorizationUrl'].toString());
+    final launched = await launchUrl(
+      authorizationUrl,
+      mode: LaunchMode.inAppBrowserView,
+    );
+    if (!launched) {
+      throw Exception('تعذر فتح صفحة UAE PASS');
+    }
 
     final callback = await _apiService.post('/auth/uae-pass/callback', {
       'code': authorize['authorizationCode'],

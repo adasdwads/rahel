@@ -53,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const Icon(Icons.shield_moon_rounded, size: 72, color: AppTheme.accent),
                     const SizedBox(height: 20),
                     Text(
-                      'تسجيل الدخول إلى RAHEL',
+                      'تسجيل الدخول إلى Rahel',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 28),
                     ),

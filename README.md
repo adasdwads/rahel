@@ -40,6 +40,7 @@ RAHEL is a full-stack digital legacy platform with a Node.js/Express/SQLite back
 3. Optional environment variables:
    - `PORT`
    - `DATABASE_PATH`
+   - `APP_BASE_URL`
    - `JWT_SECRET`
    - `JWT_REFRESH_SECRET`
    - `JWT_EXPIRES_IN`
@@ -47,6 +48,11 @@ RAHEL is a full-stack digital legacy platform with a Node.js/Express/SQLite back
    - `CIVIL_REGISTRY_WEBHOOK_SECRET`
    - `DEAD_MAN_SWITCH_DAYS`
    - `CORS_ORIGINS`
+   - `UAE_PASS_ENVIRONMENT`
+   - `UAE_PASS_CLIENT_ID`
+   - `UAE_PASS_CLIENT_SECRET`
+   - `UAE_PASS_REDIRECT_URI`
+   - `UAE_PASS_SCOPE`
 4. Start the API:
    - development: `npm run dev`
    - production: `npm start`
@@ -122,6 +128,19 @@ Default backend URL: `http://localhost:3000`
 - `POST /api/wallet/fund`
 - `GET /api/wallet/balance`
 
+### Social Legacy
+
+- `GET /api/social/platforms`
+- `POST /api/social/connect`
+- `DELETE /api/social/disconnect`
+- `POST /api/social/post`
+- `GET /api/social-legacy/configs`
+- `POST /api/social-legacy/platform`
+- `DELETE /api/social-legacy/platform/:configID`
+- `POST /api/social-legacy/self-destruct/add`
+- `PUT /api/social-legacy/self-destruct/:itemID/confirm`
+- `DELETE /api/social-legacy/self-destruct/:itemID`
+
 ### Heartbeat / Dead Man's Switch
 
 - `POST /api/heartbeat/ping`
@@ -192,3 +211,5 @@ It starts the backend on an isolated port, exercises the critical APIs, simulate
 - The active backend for final integration is `backend/`, not `server/`.
 - Binary payloads are transported as base64 strings in API requests and responses where applicable.
 - The backend auto-creates the SQLite database on startup.
+- UAE PASS supports both staging (`https://stg-id.uaepass.ae`) and production (`https://id.uaepass.ae`) through environment configuration.
+- Mobile deep-link callback should be configured for `rahel://uae-pass/callback` in Android `AndroidManifest.xml` and iOS `Info.plist`.

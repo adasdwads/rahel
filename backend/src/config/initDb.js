@@ -71,6 +71,7 @@ const initializeDatabase = () => {
   const capsuleCount = db.prepare('SELECT COUNT(*) as count FROM TimeCapsules').get().count;
   const walletCount = db.prepare('SELECT COUNT(*) as count FROM Wallets').get().count;
   const heartbeatConfigCount = db.prepare('SELECT COUNT(*) as count FROM HeartbeatConfigs').get().count;
+  const socialAccountsTable = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'SocialAccounts'").get();
 
   if (userCount === 0 || inheritanceCount === 0 || vaultCount === 0 || charityCount === 0 || capsuleCount === 0 || walletCount === 0 || heartbeatConfigCount === 0) {
     const insertUser = db.prepare(`
@@ -134,6 +135,23 @@ const initializeDatabase = () => {
     });
 
     transaction();
+  }
+
+  if (!socialAccountsTable) {
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS SocialAccounts (
+        socialAccountID TEXT PRIMARY KEY,
+        userID TEXT NOT NULL,
+        platformName TEXT NOT NULL,
+        username TEXT NOT NULL,
+        oauthState TEXT NOT NULL,
+        authUrl TEXT NOT NULL,
+        connectedAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        UNIQUE (userID, platformName),
+        FOREIGN KEY (userID) REFERENCES Users(userID) ON DELETE CASCADE
+      )
+    `).run();
   }
 };
 

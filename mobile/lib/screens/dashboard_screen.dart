@@ -8,6 +8,7 @@ import '../providers/charity_provider.dart';
 import '../providers/heartbeat_provider.dart';
 import '../providers/vault_provider.dart';
 import '../providers/capsule_provider.dart';
+import '../providers/auth_provider.dart';
 import '../widgets/quick_action_tile.dart';
 import '../widgets/status_indicator.dart';
 
@@ -19,6 +20,8 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  void Function(int)? onNavigateToTab;
+
   @override
   void initState() {
     super.initState();
@@ -34,7 +37,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       color: AppTheme.accent,
-      backgroundColor: AppTheme.cardBackground,
+      backgroundColor: AppTheme.secondaryBackground,
       onRefresh: () async {
         await Future.wait([
           context.read<VaultProvider>().loadFiles(),
@@ -49,6 +52,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildProfileCard(),
+            const SizedBox(height: 16),
             _buildHeartbeatCard(),
             const SizedBox(height: 20),
             _buildStatsGrid(),
@@ -66,6 +71,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 12),
             _buildRecentActivity(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileCard() {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        final user = authProvider.user ?? const <String, dynamic>{};
+        return Card(
+          color: AppTheme.cardBackground,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: AppTheme.accent.withOpacity(0.15),
+              child: const Icon(Icons.person_rounded, color: AppTheme.accent),
+            ),
+            title: Text(user['name']?.toString() ?? 'مستخدم Rahel'),
+            subtitle: Text(user['email']?.toString() ?? ''),
+            trailing: TextButton.icon(
+              onPressed: () => _showProfileSheet(context, user),
+              icon: const Icon(Icons.manage_accounts_rounded),
+              label: const Text('الملف الشخصي'),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showProfileSheet(BuildContext context, Map<String, dynamic> user) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.cardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('الملف الشخصي', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            Text('الاسم: ${user['name'] ?? '-'}'),
+            const SizedBox(height: 8),
+            Text('البريد: ${user['email'] ?? '-'}'),
+            const SizedBox(height: 8),
+            Text('الهاتف: ${user['phone'] ?? '-'}'),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('إغلاق'),
+              ),
+            ),
           ],
         ),
       ),
@@ -119,7 +183,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     label: const Text('أنا بخير - تأكيد النبض'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isOverdue ? Colors.redAccent : AppTheme.accent,
-                      foregroundColor: AppTheme.textPrimary,
+                      foregroundColor: AppTheme.buttonForeground,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -239,13 +303,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _navigateToTab(int index) {
-    final bottomNav = context.findAncestorWidgetOfExactType<Scaffold>();
-    if (bottomNav != null) {
-      final navBar = context.findAncestorWidgetOfExactType<BottomNavigationBar>();
-      if (navBar != null && navBar.onTap != null) {
-        navBar.onTap!(index);
-      }
-    }
+    MainNavigationController.of(context)?.goToTab(index);
   }
 
   Widget _buildRecentActivity() {

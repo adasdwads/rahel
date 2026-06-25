@@ -48,6 +48,32 @@ jobs:
           flutter pub get
           flutter create --platforms android --org com.rahel.app .
 
+      - name: Configure Android app labels
+        working-directory: mobile
+        run: |
+          mkdir -p android/app/src/main/res/values android/app/src/main/res/values-ar
+          cat <<'EOF' > android/app/src/main/res/values/strings.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">Rahel</string>
+          </resources>
+          EOF
+          cat <<'EOF' > android/app/src/main/res/values-ar/strings.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">راحل</string>
+          </resources>
+          EOF
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          text = manifest.read_text()
+          text = text.replace('android:label="rahel"', 'android:label="@string/app_name"')
+          text = text.replace('android:label="Rahel"', 'android:label="@string/app_name"')
+          text = text.replace('android:label="Runner"', 'android:label="@string/app_name"')
+          manifest.write_text(text)
+          PY
+
       - name: Build release APK
         working-directory: mobile
         run: |

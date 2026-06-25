@@ -62,8 +62,8 @@ class _CharityScreenState extends State<CharityScreen> with SingleTickerProvider
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateFlowDialog(context),
         backgroundColor: AppTheme.accent,
-        icon: const Icon(Icons.add_rounded, color: AppTheme.textPrimary),
-        label: const Text('صدقة جارية', style: TextStyle(color: AppTheme.textPrimary)),
+        icon: const Icon(Icons.add_rounded, color: AppTheme.buttonForeground),
+        label: const Text('صدقة جارية', style: TextStyle(color: AppTheme.buttonForeground)),
       ),
     );
   }
@@ -91,7 +91,7 @@ class _CharityScreenState extends State<CharityScreen> with SingleTickerProvider
 
         return RefreshIndicator(
           color: AppTheme.accent,
-          backgroundColor: AppTheme.cardBackground,
+          backgroundColor: AppTheme.secondaryBackground,
           onRefresh: () async {
             await provider.loadFlows();
             await context.read<WalletProvider>().loadTransactions();
@@ -126,7 +126,7 @@ class _CharityScreenState extends State<CharityScreen> with SingleTickerProvider
 
         return RefreshIndicator(
           color: AppTheme.accent,
-          backgroundColor: AppTheme.cardBackground,
+          backgroundColor: AppTheme.secondaryBackground,
           onRefresh: () => wallet.loadTransactions(),
           child: ListView(
             padding: const EdgeInsets.all(16),
@@ -404,7 +404,7 @@ class _CharityScreenState extends State<CharityScreen> with SingleTickerProvider
       decoration: InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: AppTheme.primaryBackground,
+        fillColor: AppTheme.inputFill,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -453,7 +453,7 @@ class _CharityScreenState extends State<CharityScreen> with SingleTickerProvider
               label: Text(actionLabel),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.accent,
-                foregroundColor: AppTheme.textPrimary,
+                foregroundColor: AppTheme.buttonForeground,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),

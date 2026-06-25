@@ -34,7 +34,7 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
 
     try {
       final didAuthenticate = await _localAuth.authenticate(
-        localizedReason: 'قم بتأكيد هويتك لتفعيل البصمة في RAHEL',
+        localizedReason: 'قم بتأكيد هويتك لتفعيل البصمة في Rahel',
         options: const AuthenticationOptions(biometricOnly: true, stickyAuth: true),
       );
 

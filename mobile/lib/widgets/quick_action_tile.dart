@@ -30,7 +30,7 @@ class QuickActionTile extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white10),
+            border: Border.all(color: AppTheme.cardBorder),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

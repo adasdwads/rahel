@@ -139,6 +139,20 @@ const schemaStatements = [
       updatedAt TEXT NOT NULL,
       FOREIGN KEY (userID) REFERENCES Users(userID) ON DELETE CASCADE
     )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS SocialAccounts (
+      socialAccountID TEXT PRIMARY KEY,
+      userID TEXT NOT NULL,
+      platformName TEXT NOT NULL,
+      username TEXT NOT NULL,
+      oauthState TEXT NOT NULL,
+      authUrl TEXT NOT NULL,
+      connectedAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      UNIQUE (userID, platformName),
+      FOREIGN KEY (userID) REFERENCES Users(userID) ON DELETE CASCADE
+    )
   `
 ];
 

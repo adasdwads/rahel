@@ -46,7 +46,7 @@ class _TimeCapsuleScreenState extends State<TimeCapsuleScreen> {
 
           return RefreshIndicator(
             color: AppTheme.accent,
-            backgroundColor: AppTheme.cardBackground,
+            backgroundColor: AppTheme.secondaryBackground,
             onRefresh: () => provider.loadCapsules(),
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
@@ -67,8 +67,8 @@ class _TimeCapsuleScreenState extends State<TimeCapsuleScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showCreateCapsuleDialog(context),
         backgroundColor: AppTheme.accent,
-        icon: const Icon(Icons.add_rounded, color: AppTheme.textPrimary),
-        label: const Text('كبسولة جديدة', style: TextStyle(color: AppTheme.textPrimary)),
+        icon: const Icon(Icons.add_rounded, color: AppTheme.buttonForeground),
+        label: const Text('كبسولة جديدة', style: TextStyle(color: AppTheme.buttonForeground)),
       ),
     );
   }
@@ -141,7 +141,7 @@ class _TimeCapsuleScreenState extends State<TimeCapsuleScreen> {
                         lastDate: DateTime.now().add(const Duration(days: 365 * 50)),
                         builder: (context, child) => Theme(
                           data: Theme.of(context).copyWith(
-                            colorScheme: const ColorScheme.dark(primary: AppTheme.accent),
+                            colorScheme: const ColorScheme.light(primary: AppTheme.accent),
                           ),
                           child: child!,
                         ),
@@ -161,7 +161,7 @@ class _TimeCapsuleScreenState extends State<TimeCapsuleScreen> {
                         initialTime: selectedTime ?? TimeOfDay.now(),
                         builder: (context, child) => Theme(
                           data: Theme.of(context).copyWith(
-                            colorScheme: const ColorScheme.dark(primary: AppTheme.accent),
+                            colorScheme: const ColorScheme.light(primary: AppTheme.accent),
                           ),
                           child: child!,
                         ),
@@ -284,7 +284,7 @@ class _TimeCapsuleScreenState extends State<TimeCapsuleScreen> {
       decoration: InputDecoration(
         labelText: label,
         filled: true,
-        fillColor: AppTheme.primaryBackground,
+        fillColor: AppTheme.inputFill,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -332,7 +332,7 @@ class _TimeCapsuleScreenState extends State<TimeCapsuleScreen> {
               label: Text(actionLabel),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.accent,
-                foregroundColor: AppTheme.textPrimary,
+                foregroundColor: AppTheme.buttonForeground,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),

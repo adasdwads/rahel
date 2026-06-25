@@ -43,7 +43,7 @@ class RahelApp extends StatelessWidget {
       child: MaterialApp(
         title: AppStrings.appTitle,
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
+        theme: AppTheme.lightTheme,
         locale: const Locale('ar'),
         supportedLocales: const [
           Locale('ar'),
@@ -98,6 +98,23 @@ class MainNavigationScreen extends StatefulWidget {
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
+class MainNavigationController extends InheritedWidget {
+  const MainNavigationController({
+    super.key,
+    required this.goToTab,
+    required super.child,
+  });
+
+  final void Function(int index) goToTab;
+
+  static MainNavigationController? of(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<MainNavigationController>();
+  }
+
+  @override
+  bool updateShouldNotify(MainNavigationController oldWidget) => false;
+}
+
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
@@ -125,32 +142,35 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_items[_currentIndex].label),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: () => context.read<AuthProvider>().logout(),
-          ),
-        ],
-      ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        type: BottomNavigationBarType.fixed,
-        items: _items
-            .map(
-              (item) => BottomNavigationBarItem(
-                icon: Icon(item.icon),
-                label: item.label,
-              ),
-            )
-            .toList(),
-        onTap: _onTabTapped,
+    return MainNavigationController(
+      goToTab: _onTabTapped,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(_items[_currentIndex].label),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout_rounded),
+              onPressed: () => context.read<AuthProvider>().logout(),
+            ),
+          ],
+        ),
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _screens,
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          type: BottomNavigationBarType.fixed,
+          items: _items
+              .map(
+                (item) => BottomNavigationBarItem(
+                  icon: Icon(item.icon),
+                  label: item.label,
+                ),
+              )
+              .toList(),
+          onTap: _onTabTapped,
+        ),
       ),
     );
   }
