@@ -17,28 +17,23 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
           channel: stable
 
-      - name: Get Flutter dependencies
+      - name: Generate iOS project
+        working-directory: mobile
         run: |
-          cd mobile
+          flutter create --platforms ios .
           flutter pub get
 
       - name: Build iOS release
+        working-directory: mobile
         run: |
-          cd mobile
           flutter build ios --release --no-codesign
 
-      - name: Create Payload directory
-        run: mkdir -p Payload
-
-      - name: Copy .app to Payload
+      - name: Package IPA
         run: |
+          mkdir -p Payload
           cp -r mobile/build/ios/iphoneos/Runner.app Payload/
-
-      - name: Create .ipa file
-        run: |
           zip -r RAHEL.ipa Payload/
 
       - name: Upload iOS artifact
