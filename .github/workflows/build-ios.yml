@@ -25,15 +25,38 @@ jobs:
           flutter create --platforms ios .
           flutter pub get
 
+      - name: Disable code signing in Xcode
+        working-directory: mobile/ios
+        run: |
+          sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development"/CODE_SIGN_IDENTITY = ""/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer"/CODE_SIGN_IDENTITY = ""/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' '/DEVELOPMENT_TEAM/d' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' Runner.xcodeproj/project.pbxproj
+          cat >> Runner.xcodeproj/project.pbxproj.patch << 'PATCH'
+          PATCH
+
       - name: Build iOS release
         working-directory: mobile
         run: |
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign --config-only
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -arch arm64 \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            -derivedDataPath ../build/ios/derived \
+            build
 
       - name: Package IPA
         run: |
           mkdir -p Payload
-          cp -r mobile/build/ios/iphoneos/Runner.app Payload/
+          cp -r mobile/build/ios/derived/Build/Products/Release-iphoneos/Runner.app Payload/
           zip -r RAHEL.ipa Payload/
 
       - name: Upload iOS artifact
